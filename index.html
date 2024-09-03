@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>قنوات البث المباشر</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+body {
+            background-color: #f0f2f5;
+            font-family: 'Tajawal', Arial, sans-serif;
+            padding-top: calc(56.25vw + 30px);
+            max-width: 100%;
+            overflow-x: hidden;
+        }
+        #videoContainer {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            background-color: #000;
+            z-index: 1000;
+        }
+        #videoPlayer {
+  width: 100%;
+  height: 100%
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 100;
+}
+        #channelName {
+            color: #333;
+            background-color: #E1E7FE;
+            padding: 5px 10px;
+            font-size: 14px;
+            font-weight: bold;
+            text-align: right;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .channel-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+            gap: 20px;
+            padding: 20px;
+        }
+        .channel-item {
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            padding: 15px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .channel-item:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        .channel-icon {
+            width: 120px;
+            height: 120px;
+            margin-bottom: 10px;
+            object-fit: cover;
+            border-radius: 10px;
+        }
+        .channel-name {
+            font-weight: bold;
+            font-size: 14px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+    </style>
+</head>
+<body>
+    <div id="videoContainer">
+        <video id="videoPlayer" controls autoplay></video>
+        <div id="channelName"></div>
+    </div>
+
+    <div class="channel-grid" id="channelGrid"></div>
+
+    <script>
+        const channelGrid = document.getElementById('channelGrid');
+        const videoPlayer = document.getElementById('videoPlayer');
+        const channelNameElement = document.getElementById('channelName');
+
+        const defaultChannel = {
+            url: "https://vo-live.cdb.cdn.orange.com/Content/Channel/NationalGeographicHDChannel/HLS/index.m3u8",
+            title: "National Geographic HD"
+        };
+
+        function playChannel(url, title) {
+            videoPlayer.src = url;
+            videoPlayer.play();
+            channelNameElement.textContent = title;
+        }
+
+        function createChannelItem(title, logo, url) {
+            const channelItem = document.createElement('div');
+            channelItem.className = 'channel-item';
+            channelItem.innerHTML = `
+                <img src="${logo}" alt="${title}" class="channel-icon" onerror="this.src='https://via.placeholder.com/120'">
+                <div class="channel-name">${title}</div>
+            `;
+            channelItem.onclick = () => playChannel(url, title);
+            return channelItem;
+        }
+
+        function parseChannelsData(data) {
+            const lines = data.split('\n');
+            let currentTitle = '';
+            let currentLogo = '';
+            let currentUrl = '';
+            let defaultChannelFound = false;
+
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i].trim();
+                if (line.startsWith('#EXTINF:')) {
+                    const logoMatch = line.match(/tvg-logo="([^"]+)"/);
+                    currentLogo = logoMatch ? logoMatch[1] : '';
+                    currentTitle = line.split(',').pop().trim();
+                } else if (line && !line.startsWith('#')) {
+                    currentUrl = line;
+                    if (currentTitle && currentUrl) {
+                        const channelItem = createChannelItem(currentTitle, currentLogo, currentUrl);
+                        channelGrid.appendChild(channelItem);
+
+                        if (currentUrl === defaultChannel.url) {
+                            defaultChannelFound = true;
+                            playChannel(currentUrl, currentTitle);
+                        }
+
+                        currentTitle = '';
+                        currentLogo = '';
+                        currentUrl = '';
+                    }
+                }
+            }
+
+            // إذا لم يتم العثور على القناة الافتراضية في الملف، قم بتشغيلها مباشرة
+            if (!defaultChannelFound) {
+                playChannel(defaultChannel.url, defaultChannel.title);
+            }
+        }
+
+        // قراءة الملف المحلي
+        fetch('ARABIPTV.m3u')
+            .then(response => response.text())
+            .then(data => {
+                parseChannelsData(data);
+            })
+            .catch(error => {
+                console.error('Error loading channels:', error);
+                // في حالة فشل تحميل الملف، قم بتشغيل القناة الافتراضية
+                playChannel(defaultChannel.url, defaultChannel.title);
+            });
+    </script>
+</body>
+</html>
