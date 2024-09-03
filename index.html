@@ -4,89 +4,77 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>قنوات البث المباشر</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
-body {
-            background-color: #f0f2f5;
-            font-family: 'Tajawal', Arial, sans-serif;
-            padding-top: calc(56.25vw + 30px);
-            max-width: 100%;
-            overflow-x: hidden;
-        }
-        #videoContainer {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            background-color: #000;
-            z-index: 1000;
-        }
-        #videoPlayer {
-  width: 100%;
-  height: 100%
-  position: fixed;
-  top: 0;
-  left: 0;
-  z-index: 100;
-}
-        #channelName {
-            color: #333;
-            background-color: #E1E7FE;
-            padding: 5px 10px;
-            font-size: 14px;
-            font-weight: bold;
-            text-align: right;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-        .channel-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-            gap: 20px;
-            padding: 20px;
-        }
-        .channel-item {
-            background-color: white;
-            border-radius: 10px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-            padding: 15px;
-            text-align: center;
-            cursor: pointer;
+        .video-container {
             transition: all 0.3s ease;
         }
-        .channel-item:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        .video-container.sticky {
+            position: fixed;
+            top: 60px;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            padding: 10px;
+            background-color: rgba(255, 255, 255, 0.9);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
         }
-        .channel-icon {
-            width: 120px;
-            height: 120px;
-            margin-bottom: 10px;
-            object-fit: cover;
-            border-radius: 10px;
+        .video-container.sticky .aspect-w-16 {
+            max-width: 400px;
+            margin: 0 auto;
         }
-        .channel-name {
-            font-weight: bold;
-            font-size: 14px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
+        .channel-transition {
+            transition: all 0.3s ease;
+        }
+        .channel-scroll::-webkit-scrollbar {
+            height: 8px;
+        }
+        .channel-scroll::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        .channel-scroll::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+        }
+        .channel-scroll::-webkit-scrollbar-thumb:hover {
+            background: #555;
         }
     </style>
 </head>
-<body>
-    <div id="videoContainer">
-        <video id="videoPlayer" controls autoplay></video>
-        <div id="channelName"></div>
-    </div>
+<body class="bg-gray-100 font-sans">
+    <header class="bg-white shadow-md fixed top-0 left-0 right-0 z-50">
+        <div class="container mx-auto px-4 py-3 flex items-center justify-between">
+            <h1 class="text-xl font-bold text-red-600">بث مباشر</h1>
+            <div class="relative">
+                <input type="text" id="searchInput" placeholder="ابحث عن قناة..." class="pr-10 pl-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-red-600 focus:border-transparent">
+                <button id="searchButton" class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-red-600">
+                    <i class="fas fa-search"></i>
+                </button>
+            </div>
+        </div>
+    </header>
 
-    <div class="channel-grid" id="channelGrid"></div>
+    <main class="container mx-auto mt-20 px-4">
+        <div class="video-container mb-6">
+            <div class="aspect-w-16 aspect-h-9">
+                <video id="videoPlayer" class="w-full h-full object-cover rounded-lg shadow-lg" controls autoplay></video>
+            </div>
+            <h2 id="channelName" class="text-xl font-semibold mt-2 text-gray-800"></h2>
+        </div>
+        
+        <div id="channelGroups" class="mt-6">
+            <!-- مجموعات القنوات ستُضاف هنا ديناميكيًا -->
+        </div>
+    </main>
 
     <script>
-        const channelGrid = document.getElementById('channelGrid');
+        const channelGroups = document.getElementById('channelGroups');
         const videoPlayer = document.getElementById('videoPlayer');
         const channelNameElement = document.getElementById('channelName');
+        const searchInput = document.getElementById('searchInput');
+        const searchButton = document.getElementById('searchButton');
+        const videoContainer = document.querySelector('.video-container');
 
         const defaultChannel = {
             url: "https://vo-live.cdb.cdn.orange.com/Content/Channel/NationalGeographicHDChannel/HLS/index.m3u8",
@@ -101,13 +89,28 @@ body {
 
         function createChannelItem(title, logo, url) {
             const channelItem = document.createElement('div');
-            channelItem.className = 'channel-item';
+            channelItem.className = 'bg-white rounded-lg shadow-md overflow-hidden transition-transform duration-300 hover:scale-105 cursor-pointer channel-transition';
             channelItem.innerHTML = `
-                <img src="${logo}" alt="${title}" class="channel-icon" onerror="this.src='https://via.placeholder.com/120'">
-                <div class="channel-name">${title}</div>
+                <img src="${logo}" alt="${title}" class="w-full h-32 object-cover" onerror="this.src='https://via.placeholder.com/192x128?text=${encodeURIComponent(title)}'">
+                <div class="p-3">
+                    <h3 class="text-sm font-semibold text-gray-800 truncate">${title}</h3>
+                </div>
             `;
-            channelItem.onclick = () => playChannel(url, title);
+            channelItem.onclick = () => {
+                playChannel(url, title);
+                videoContainer.scrollIntoView({ behavior: 'smooth' });
+            };
             return channelItem;
+        }
+
+        function createCountryGroup(country) {
+            const groupDiv = document.createElement('div');
+            groupDiv.className = 'mb-6';
+            groupDiv.innerHTML = `
+                <h3 class="text-lg font-semibold text-gray-700 mb-2">${country}</h3>
+                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4" data-country="${country}"></div>
+            `;
+            return groupDiv;
         }
 
         function parseChannelsData(data) {
@@ -115,6 +118,8 @@ body {
             let currentTitle = '';
             let currentLogo = '';
             let currentUrl = '';
+            let currentCountry = '';
+            let channelsByCountry = {};
             let defaultChannelFound = false;
 
             for (let i = 0; i < lines.length; i++) {
@@ -122,12 +127,16 @@ body {
                 if (line.startsWith('#EXTINF:')) {
                     const logoMatch = line.match(/tvg-logo="([^"]+)"/);
                     currentLogo = logoMatch ? logoMatch[1] : '';
+                    const countryMatch = line.match(/group-title="([^"]+)"/);
+                    currentCountry = countryMatch ? countryMatch[1] : 'أخرى';
                     currentTitle = line.split(',').pop().trim();
                 } else if (line && !line.startsWith('#')) {
                     currentUrl = line;
                     if (currentTitle && currentUrl) {
-                        const channelItem = createChannelItem(currentTitle, currentLogo, currentUrl);
-                        channelGrid.appendChild(channelItem);
+                        if (!channelsByCountry[currentCountry]) {
+                            channelsByCountry[currentCountry] = [];
+                        }
+                        channelsByCountry[currentCountry].push({title: currentTitle, logo: currentLogo, url: currentUrl});
 
                         if (currentUrl === defaultChannel.url) {
                             defaultChannelFound = true;
@@ -141,13 +150,27 @@ body {
                 }
             }
 
-            // إذا لم يتم العثور على القناة الافتراضية في الملف، قم بتشغيلها مباشرة
+            // ترتيب الدول
+            const sortedCountries = Object.keys(channelsByCountry).sort((a, b) => {
+                const order = ['الأردنية', 'العراق', 'الإمارات العربية المتحدة', 'السعودية'];
+                return order.indexOf(a) - order.indexOf(b);
+            });
+
+            sortedCountries.forEach(country => {
+                const groupDiv = createCountryGroup(country);
+                const channelContainer = groupDiv.querySelector(`[data-country="${country}"]`);
+                channelsByCountry[country].forEach(channel => {
+                    const channelItem = createChannelItem(channel.title, channel.logo, channel.url);
+                    channelContainer.appendChild(channelItem);
+                });
+                channelGroups.appendChild(groupDiv);
+            });
+
             if (!defaultChannelFound) {
                 playChannel(defaultChannel.url, defaultChannel.title);
             }
         }
 
-        // قراءة الملف المحلي
         fetch('ARABIPTV.m3u')
             .then(response => response.text())
             .then(data => {
@@ -155,9 +178,45 @@ body {
             })
             .catch(error => {
                 console.error('Error loading channels:', error);
-                // في حالة فشل تحميل الملف، قم بتشغيل القناة الافتراضية
                 playChannel(defaultChannel.url, defaultChannel.title);
             });
+
+        function performSearch() {
+            const searchTerm = searchInput.value.toLowerCase();
+            const allChannelItems = document.querySelectorAll('.grid > div');
+            const countryGroups = document.querySelectorAll('#channelGroups > div');
+
+            allChannelItems.forEach(item => {
+                const channelName = item.querySelector('h3').textContent.toLowerCase();
+                if (channelName.includes(searchTerm)) {
+                    item.classList.remove('hidden');
+                } else {
+                    item.classList.add('hidden');
+                }
+            });
+
+            countryGroups.forEach(group => {
+                const visibleChannels = group.querySelectorAll('.grid > div:not(.hidden)');
+                if (visibleChannels.length === 0) {
+                    group.classList.add('hidden');
+                } else {
+                    group.classList.remove('hidden');
+                }
+            });
+        }
+
+        searchInput.addEventListener('input', performSearch);
+        searchButton.addEventListener('click', performSearch);
+
+        // إضافة تأثير الفيديو الثابت عند التمرير
+        window.addEventListener('scroll', () => {
+            const scrollPosition = window.scrollY;
+            if (scrollPosition > 100) {
+                videoContainer.classList.add('sticky');
+            } else {
+                videoContainer.classList.remove('sticky');
+            }
+        });
     </script>
 </body>
 </html>
